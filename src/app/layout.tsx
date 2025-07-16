@@ -4,6 +4,8 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { EmailProvider } from "@/contexts/email-context"
 import { Suspense } from "react"
+import { ThemeProvider } from "@/components/theme-provider"
+import LoadingUI from "@/components/loading-ui"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -18,11 +20,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <EmailProvider>
-          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-        </EmailProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <EmailProvider>
+            <Suspense fallback={<LoadingUI />}>{children}</Suspense>
+          </EmailProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

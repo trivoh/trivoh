@@ -1,5 +1,4 @@
 "use client"
-
 import { createContext, useContext, useState, type ReactNode } from "react"
 
 export interface Email {
@@ -30,12 +29,14 @@ interface EmailContextType {
   selectedFolder: string
   showComposeModal: boolean
   labels: Label[]
+  searchQuery: string // Added for search functionality
   setSelectedEmail: (email: Email | null) => void
   setSelectedFolder: (folder: string) => void
   setShowComposeModal: (show: boolean) => void
   markAsRead: (emailId: string) => void
   toggleStar: (emailId: string) => void
   getEmailsByFolder: (folder: string) => Email[]
+  setSearchQuery: (query: string) => void // Added for search functionality
 }
 
 const EmailContext = createContext<EmailContextType | undefined>(undefined)
@@ -133,15 +134,26 @@ export function EmailProvider({ children }: { children: ReactNode }) {
   const [selectedFolder, setSelectedFolder] = useState("inbox")
   const [showComposeModal, setShowComposeModal] = useState(false)
   const [labels] = useState<Label[]>(mockLabels)
+  const [searchQuery, setSearchQuery] = useState("") // New state for search query
 
   const getEmailsByFolder = (folder: string): Email[] => {
-    return emails.filter((email) => email.folder === folder)
+    const filteredByFolder = emails.filter((email) => email.folder === folder)
+    if (!searchQuery) {
+      return filteredByFolder
+    }
+    const lowerCaseQuery = searchQuery.toLowerCase()
+    return filteredByFolder.filter(
+      (email) =>
+        email.sender.toLowerCase().includes(lowerCaseQuery) ||
+        email.subject.toLowerCase().includes(lowerCaseQuery) ||
+        email.preview.toLowerCase().includes(lowerCaseQuery) ||
+        email.content.toLowerCase().includes(lowerCaseQuery),
+    )
   }
 
   const markAsRead = (emailId: string) => {
     // Implementation for marking email as read
   }
-
   const toggleStar = (emailId: string) => {
     // Implementation for toggling star
   }
@@ -154,12 +166,14 @@ export function EmailProvider({ children }: { children: ReactNode }) {
         selectedFolder,
         showComposeModal,
         labels,
+        searchQuery, // Provide search query
         setSelectedEmail,
         setSelectedFolder,
         setShowComposeModal,
         markAsRead,
         toggleStar,
         getEmailsByFolder,
+        setSearchQuery, // Provide setSearchQuery
       }}
     >
       {children}
