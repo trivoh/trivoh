@@ -24,12 +24,12 @@ export interface Label {
   color: string
 }
 
-interface EmailContextType {
+export interface EmailContextType {
   emails: Email[]
   selectedEmail: Email | null
   selectedFolder: string
-  searchQuery: string // searchTerm se change karo
-  setSearchQuery: (query: string) => void // setSearchTerm se change karo
+  searchQuery: string
+  setSearchQuery: (query: string) => void
   setSelectedEmail: (email: Email | null) => void
   setSelectedFolder: (folder: string) => void
   markAsRead: (emailId: string) => void
@@ -39,6 +39,8 @@ interface EmailContextType {
   getEmailsByFolder: (folder: string) => Email[]
   getFilteredEmails: (folder: string, search?: string) => Email[]
   getUnreadCount: (folder: string) => number
+  showComposeModal: boolean // Add this line
+  setShowComposeModal: (show: boolean) => void // Add this line
 }
 
 const EmailContext = createContext<EmailContextType | undefined>(undefined)
@@ -124,7 +126,8 @@ export function EmailProvider({ children }: { children: ReactNode }) {
   const [emails, setEmails] = useState<Email[]>(sampleEmails)
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [selectedFolder, setSelectedFolder] = useState("inbox")
-  const [searchQuery, setSearchQuery] = useState("") // searchTerm se change karo
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showComposeModal, setShowComposeModal] = useState(false) // Add this line
 
   const addEmail = (emailData: Omit<Email, "id" | "timestamp">) => {
     const newEmail: Email = {
@@ -152,7 +155,7 @@ export function EmailProvider({ children }: { children: ReactNode }) {
     const folderEmails = getEmailsByFolder(folder)
 
     // Use the search parameter if provided, otherwise use the context searchQuery
-    const searchTerm = search !== undefined ? search : searchQuery // searchTerm variable name keep karo
+    const searchTerm = search !== undefined ? search : searchQuery
 
     // Return all emails if no search query
     if (!searchTerm || !searchTerm.trim()) {
@@ -188,8 +191,8 @@ export function EmailProvider({ children }: { children: ReactNode }) {
         emails,
         selectedEmail,
         selectedFolder,
-        searchQuery, // searchTerm se change karo
-        setSearchQuery, // setSearchTerm se change karo
+        searchQuery,
+        setSearchQuery,
         setSelectedEmail,
         setSelectedFolder,
         markAsRead,
@@ -199,6 +202,8 @@ export function EmailProvider({ children }: { children: ReactNode }) {
         getEmailsByFolder,
         getFilteredEmails,
         getUnreadCount,
+        showComposeModal, // Add this line
+        setShowComposeModal, // Add this line
       }}
     >
       {children}
