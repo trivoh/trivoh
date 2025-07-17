@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useDragControls, type Variants } from "framer-
 import { X, Minimize2, Send, Save, Trash2, Paperclip, Edit3, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useEmail } from "@/contexts/email-context"
 import TiptapEditor from "@/components/rich-text-editor"
 
 interface EmailComposeProps {
@@ -12,6 +13,7 @@ interface EmailComposeProps {
 }
 
 export default function EmailCompose({ onClose }: EmailComposeProps) {
+  const { addEmail, setSelectedFolder } = useEmail()
   const [isMinimized, setIsMinimized] = useState(false)
   const [showCc, setShowCc] = useState(false)
   const [showBcc, setShowBcc] = useState(false)
@@ -21,13 +23,18 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
   const [subject, setSubject] = useState("")
   const [content, setContent] = useState("")
   const [position, setPosition] = useState({ x: 0, y: 0 })
-
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
   const dragControls = useDragControls()
   const constraintsRef = useRef<HTMLDivElement>(null)
 
+  // Fix hydration issue
   useEffect(() => {
-    if (isMinimized) {
-      // Position the minimized icon at bottom-right
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isMinimized && isMounted) {
       const updatePosition = () => {
         setPosition({
           x: window.innerWidth - 80,
@@ -38,21 +45,90 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
       window.addEventListener("resize", updatePosition)
       return () => window.removeEventListener("resize", updatePosition)
     }
-  }, [isMinimized])
+  }, [isMinimized, isMounted])
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
 
   const handleSend = () => {
-    // Handle send email logic here
-    console.log("Sending email:", { to, cc, bcc, subject, content })
-    onClose()
+    if (!to.trim()) {
+      showNotification("Please enter a recipient email address", "error")
+      return
+    }
+    if (!subject.trim()) {
+      showNotification("Please enter a subject", "error")
+      return
+    }
+
+    const newEmail = {
+      sender: "You",
+      subject: subject.trim(),
+      preview: content.replace(/<[^>]*>/g, "").substring(0, 100) + "...",
+      content: content,
+      isRead: true,
+      labels: [],
+      folder: "sent",
+      to: to.trim(),
+      cc: cc.trim() || undefined,
+      bcc: bcc.trim() || undefined,
+    }
+
+    addEmail(newEmail)
+    showNotification("Email sent successfully!", "success")
+
+    setTimeout(() => {
+      setSelectedFolder("sent")
+    }, 1000)
+
+    setTimeout(() => {
+      setTo("")
+      setCc("")
+      setBcc("")
+      setSubject("")
+      setContent("")
+      onClose()
+    }, 1500)
   }
 
   const handleSaveDraft = () => {
-    // Handle save draft logic here
-    console.log("Saving draft:", { to, cc, bcc, subject, content })
+    if (!to.trim() && !subject.trim() && !content.trim()) {
+      showNotification("Cannot save empty draft", "error")
+      return
+    }
+
+    const draftEmail = {
+      sender: "You (Draft)",
+      subject: subject.trim() || "(No Subject)",
+      preview: content.replace(/<[^>]*>/g, "").substring(0, 100) + "..." || "(No Content)",
+      content: content,
+      isRead: true,
+      labels: ["Draft"],
+      folder: "drafts",
+      to: to.trim() || undefined,
+      cc: cc.trim() || undefined,
+      bcc: bcc.trim() || undefined,
+    }
+
+    addEmail(draftEmail)
+    showNotification("Draft saved successfully!", "success")
+
+    setTimeout(() => {
+      setSelectedFolder("drafts")
+    }, 1000)
+
+    setTimeout(() => {
+      setTo("")
+      setCc("")
+      setBcc("")
+      setSubject("")
+      setContent("")
+      onClose()
+    }, 1500)
   }
 
   const handleDelete = () => {
-    // Clear all content when the modal is explicitly closed
     setTo("")
     setCc("")
     setBcc("")
@@ -103,44 +179,85 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
     },
   }
 
+  // Don't render until mounted to avoid hydration issues
+  if (!isMounted) {
+    return null
+  }
+
   if (isMinimized) {
     return (
-      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50">
-        <motion.div
-          drag
-          dragControls={dragControls}
-          dragConstraints={constraintsRef}
-          initial={{ x: position.x, y: position.y }}
-          animate={{ x: position.x, y: position.y }}
-          variants={minimizedVariants}
-          className="fixed w-14 h-14 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full shadow-lg cursor-pointer pointer-events-auto transition-colors"
-          onClick={() => setIsMinimized(false)}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <div className="flex items-center justify-center w-full h-full">
-            <Edit3 className="w-6 h-6 text-white" />
-          </div>
-        </motion.div>
-      </div>
+      <>
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              key="minimized-notification" // Added explicit key
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${
+                notification.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              }`}
+            >
+              {notification.message}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50">
+          <motion.div
+            key="minimized-button" // Added explicit key
+            drag
+            dragControls={dragControls}
+            dragConstraints={constraintsRef}
+            initial={{ x: position.x, y: position.y }}
+            animate={{ x: position.x, y: position.y }}
+            variants={minimizedVariants}
+            className="fixed w-14 h-14 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full shadow-lg cursor-pointer pointer-events-auto transition-colors"
+            onClick={() => setIsMinimized(false)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <div className="flex items-center justify-center w-full h-full">
+              <Edit3 className="w-6 h-6 text-white" />
+            </div>
+          </motion.div>
+        </div>
+      </>
     )
   }
 
   return (
-    <AnimatePresence>
+    <>
+      {" "}
+      {/* Replaced AnimatePresence with a Fragment */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            key="full-modal-notification" // Added explicit key
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${
+              notification.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+            }`}
+          >
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4"
-        onClick={() => setIsMinimized(true)} // Minimize on outside click
+        onClick={() => setIsMinimized(true)}
       >
         <motion.div
+          key="main-compose-modal" // Added explicit key
           variants={modalVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
           className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
-          onClick={(e: MouseEvent) => e.stopPropagation()} // Prevent clicks inside from minimizing
+          onClick={(e: MouseEvent) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">New Message</h2>
             <div className="flex items-center gap-2">
@@ -162,7 +279,7 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
               </Button>
             </div>
           </div>
-          {/* Recipients */}
+
           <div className="p-4 space-y-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2">
               <label htmlFor="to-input" className="text-sm font-medium text-gray-700 dark:text-gray-300 w-12">
@@ -253,11 +370,11 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
               />
             </div>
           </div>
-          {/* Content */}
+
           <div className="flex-1 p-4 overflow-hidden">
             <TiptapEditor content={content} onChange={setContent} placeholder="Compose your message..." />
           </div>
-          {/* Footer */}
+
           <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Button
@@ -296,6 +413,6 @@ export default function EmailCompose({ onClose }: EmailComposeProps) {
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </>
   )
 }

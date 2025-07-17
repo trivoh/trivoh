@@ -18,11 +18,13 @@ declare module "@tiptap/core" {
 
 const FontSize = Extension.create({
   name: "fontSize",
+
   addOptions() {
     return {
       types: ["textStyle"],
     }
   },
+
   addGlobalAttributes() {
     return [
       {
@@ -44,6 +46,7 @@ const FontSize = Extension.create({
       },
     ]
   },
+
   addCommands() {
     return {
       setFontSize:
@@ -54,7 +57,8 @@ const FontSize = Extension.create({
       unsetFontSize:
         () =>
         ({ chain }) => {
-          return chain().unsetMark("textStyle", { fontSize: null }).run()
+          // Corrected: Use setMark with fontSize: null to unset the attribute
+          return chain().setMark("textStyle", { fontSize: null }).run()
         },
     }
   },

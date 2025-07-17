@@ -1,4 +1,5 @@
 "use client"
+import Image from "next/image";
 
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { NotificationSidebar } from "@/components/notification-sidebar"
 import { useEmail } from "@/contexts/email-context"
 import { useTheme } from "next-themes"
-import Image from "next/image" // Import Next.js Image component
 
 interface TopBarProps {
   onToggleMobileSidebar: () => void
@@ -27,9 +27,8 @@ export function TopBar({ onToggleMobileSidebar }: TopBarProps) {
   const [showNotificationSidebar, setShowNotificationSidebar] = useState(false)
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0])
-  const { setShowComposeModal, searchQuery, setSearchQuery } = useEmail()
+  const { searchQuery, setSearchQuery } = useEmail()
   const { theme, setTheme } = useTheme()
-
   const languageDropdownRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const mobileSearchInputRef = useRef<HTMLInputElement>(null)
@@ -59,7 +58,7 @@ export function TopBar({ onToggleMobileSidebar }: TopBarProps) {
 
   return (
     <>
-      <div className="h-14 bg-white dark:bg-gray-900 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4">
+      <div className="h-14 bg-white dark:bg-gray-900 flex items-center justify-between     dark:border-gray-700 px-4">
         {/* Mobile Search Expanded State */}
         <AnimatePresence mode="wait">
           {showMobileSearch ? (
@@ -96,28 +95,27 @@ export function TopBar({ onToggleMobileSidebar }: TopBarProps) {
               className="flex flex-1 items-center justify-between md:justify-start"
             >
               {/* Left Section - Hamburger Menu (Mobile Only) and Logo */}
-              <div className="flex items-center space-x-4 md:w-80  md:border-gray-200 dark:md:border-gray-700 pr-4">
+              <div className="flex items-center space-x-4 md:w-80 md:border-gray-200 dark:md:border-gray-700 pr-4">
                 <Button variant="ghost" size="sm" className="md:hidden" onClick={onToggleMobileSidebar}>
                   <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </Button>
                 {/* Logo for both mobile and desktop */}
-                <div className="flex text-center justify-center items-center space-x-2">
-                  <Image
-                    src="/logo.png"
-                    alt="Mail App Logo"
-                    width={39} // Corresponds to w-8
-                    height={39} // Corresponds to h-8
-                    className="rounded-lg" // Maintain rounded corners if desired
-                  />
-                  <h1 className="text-xl font-semibold text-teal-600 hidden md:block">Mail</h1>
-                </div>
+               <div className="flex text-center justify-center items-center space-x-2">
+  <Image
+    src="/logo.png"
+    alt="Logo"
+    width={39}
+    height={39}
+    priority
+  />
+  <h1 className="text-xl font-semibold text-teal-600 hidden md:block">Mail</h1>
+</div>
+
               </div>
 
               {/* Middle Section - New button and Desktop Search */}
-              <div className="flex-1 flex items-center space-x-6 hidden md:flex ">
-                <button   className="text-teal-600 font-medium text-lg">
-                  New
-                </button>
+              <div className="flex-1 flex items-center space-x-6 hidden md:flex">
+                <button className="text-teal-600 font-medium text-lg">New</button>
                 <div className="flex-1 flex justify-center">
                   <div className="relative max-w-md w-full">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
@@ -273,7 +271,6 @@ export function TopBar({ onToggleMobileSidebar }: TopBarProps) {
           )}
         </AnimatePresence>
       </div>
-
       {/* Notification Sidebar */}
       <NotificationSidebar isOpen={showNotificationSidebar} onClose={() => setShowNotificationSidebar(false)} />
     </>

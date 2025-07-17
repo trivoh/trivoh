@@ -6,7 +6,6 @@ import {
   Inbox,
   Send,
   FileText,
-  Edit3,
   Heart,
   Shield,
   ChevronDown,
@@ -19,10 +18,10 @@ import {
   Edit,
   X,
   Save,
-  Edit3Icon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useEmail } from "@/contexts/email-context"
 import EmailCompose from "@/components/compose-modal"
 
 interface SidebarProps {
@@ -37,11 +36,11 @@ interface Label {
 }
 
 const menuItems = [
-  { id: "inbox", label: "Inbox", icon: Inbox, count: 0 },
-  { id: "desired", label: "Desired", icon: Heart, count: 0 },
-  { id: "sent", label: "Sent", icon: Send, count: 0 },
-  { id: "drafts", label: "Drafts", icon: FileText, count: 0 },
-  { id: "spam", label: "Spam", icon: Shield, count: 0 },
+  { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "desired", label: "Desired", icon: Heart },
+  { id: "sent", label: "Sent", icon: Send },
+  { id: "drafts", label: "Drafts", icon: FileText },
+  { id: "spam", label: "Spam", icon: Shield },
 ]
 
 const moreItems = [
@@ -61,8 +60,9 @@ const colorOptions = [
 ]
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const { selectedFolder, setSelectedFolder, getUnreadCount, searchQuery, setSearchQuery } = useEmail()
+
   // Local state management for sidebar
-  const [selectedFolder, setSelectedFolder] = useState<string>("inbox")
   const [showComposeModal, setShowComposeModal] = useState<boolean>(false)
   const [labels, setLabels] = useState<Label[]>([
     { id: "1", name: "Work", color: "bg-blue-500" },
@@ -96,14 +96,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const deleteLabel = (id: string) => {
     setLabels((prev) => prev.filter((label) => label.id !== id))
-    // If the deleted label was selected, switch to inbox
     if (selectedFolder === id) {
       setSelectedFolder("inbox")
     }
-  }
-
-  const updateLabel = (id: string, name: string, color: string) => {
-    setLabels((prev) => prev.map((label) => (label.id === id ? { ...label, name, color } : label)))
   }
 
   const showNotification = (message: string, type: "success" | "error") => {
@@ -116,14 +111,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       showNotification("Label name cannot be empty!", "error")
       return
     }
-
     const existingLabel = labels.find((label) => label.name.toLowerCase() === newLabelName.toLowerCase())
-
     if (existingLabel) {
       showNotification("Label with this name already exists!", "error")
       return
     }
-
     addLabel(newLabelName.trim(), selectedColor)
     showNotification(`Label "${newLabelName}" added successfully!`, "success")
     setNewLabelName("")
@@ -144,28 +136,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }
 
   const handleEditLabelsOpen = () => {
-    setEditingLabels([...labels]) // Create a copy for editing
-    setEditModalSearchTerm("") // Reset search term
+    setEditingLabels([...labels])
+    setEditModalSearchTerm("")
     setShowEditLabelsModal(true)
   }
 
   const handleSaveEditedLabels = () => {
-    // Validate all labels
     for (const label of editingLabels) {
       if (label.name.trim() === "") {
         showNotification("Label names cannot be empty!", "error")
         return
       }
     }
-
-    // Check for duplicates
     const names = editingLabels.map((label) => label.name.toLowerCase())
     const uniqueNames = new Set(names)
     if (names.length !== uniqueNames.size) {
       showNotification("Duplicate label names are not allowed!", "error")
       return
     }
-
     setLabels(editingLabels)
     setShowEditLabelsModal(false)
     showNotification("Labels updated successfully!", "success")
@@ -191,24 +179,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <div className="h-full flex flex-col shadow bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300">
       {/* Custom Scrollbar Styles */}
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        .thin-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
+        .thin-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .thin-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e0;
-          border-radius: 2px;
+        .thin-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(156, 163, 175, 0.5);
+          border-radius: 3px;
+          transition: background 0.2s ease;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #a0aec0;
+        .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(156, 163, 175, 0.8);
         }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #4a5568;
+        .dark .thin-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(75, 85, 99, 0.5);
         }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
+        .dark .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(75, 85, 99, 0.8);
         }
       `}</style>
 
@@ -249,38 +242,41 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Scrollable Navigation Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto thin-scrollbar">
         {/* Navigation Menu */}
         <nav className="px-[15px] pb-2">
           <div className="space-y-2">
-            {menuItems.map((item) => (
-              <Button
-                key={item.id}
-                variant="ghost"
-                size="sm"
-onClick={() => {
-  setSelectedFolder(item.id)
-  if (window.innerWidth < 768) onToggle()  
-}}
-                className={`w-full justify-start h-9 px-3 text-sm font-bold ${
-                  selectedFolder === item.id
-                    ? "bg-teal-50 dark:bg-teal-900 text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-800"
-                    : "bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                <item.icon className="w-4 h-4 mr-3 flex-shrink-0" />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.count > 0 && (
-                      <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs px-2 py-0.5 rounded-full ml-2">
-                        {item.count}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Button>
-            ))}
+            {menuItems.map((item) => {
+              const count = getUnreadCount(item.id)
+              return (
+                <Button
+                  key={item.id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedFolder(item.id)
+                    if (window.innerWidth < 768) onToggle()
+                  }}
+                  className={`w-full justify-start h-9 px-3 text-sm font-bold ${
+                    selectedFolder === item.id
+                      ? "bg-teal-50 dark:bg-teal-900 text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-800"
+                      : "bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 mr-3 flex-shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {count > 0 && (
+                        <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs px-2 py-0.5 rounded-full ml-2">
+                          {count}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Button>
+              )
+            })}
 
             {/* More Section */}
             <div>
@@ -297,7 +293,6 @@ onClick={() => {
                 )}
                 {!collapsed && <span className="flex-1 text-left">More</span>}
               </Button>
-
               <AnimatePresence>
                 {showMore && (
                   <motion.div
@@ -339,7 +334,6 @@ onClick={() => {
                   LABELS
                 </h3>
                 <div className="flex items-center space-x-1">
-                  {/* Add New Label Button */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -348,7 +342,6 @@ onClick={() => {
                   >
                     <Plus className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                   </Button>
-                  {/* Edit Labels Button */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -357,7 +350,6 @@ onClick={() => {
                   >
                     <Edit className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                   </Button>
-                  {/* Search Label Button */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -410,8 +402,6 @@ onClick={() => {
                     <div className={`w-2 h-2 rounded-full ${label.color} mr-3 flex-shrink-0`} />
                   </Button>
                 ))}
-
-                {/* "Add New" button at the end of the list */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -456,7 +446,6 @@ onClick={() => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-
               <div className="space-y-4">
                 <div>
                   <Input
@@ -472,7 +461,6 @@ onClick={() => {
                     autoFocus
                   />
                 </div>
-
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choose Color</p>
                   <div className="flex flex-wrap gap-2">
@@ -490,7 +478,6 @@ onClick={() => {
                     ))}
                   </div>
                 </div>
-
                 <div className="flex gap-2 pt-2">
                   <Button variant="outline" onClick={() => setShowAddLabelModal(false)} className="flex-1">
                     Cancel
@@ -534,8 +521,6 @@ onClick={() => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-
-              {/* Search Bar in Edit Modal */}
               <div className="mb-4">
                 <Input
                   placeholder="Search labels to edit..."
@@ -544,9 +529,7 @@ onClick={() => {
                   className="h-9 border-gray-300 dark:border-gray-700 bg-transparent focus:border-teal-500 dark:focus:border-teal-400"
                 />
               </div>
-
-              {/* Edit Labels List */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+              <div className="flex-1 overflow-y-auto thin-scrollbar space-y-3 pr-2">
                 {filteredEditingLabels.map((label) => (
                   <div
                     key={label.id}
@@ -584,13 +567,10 @@ onClick={() => {
                     </Button>
                   </div>
                 ))}
-
                 {filteredEditingLabels.length === 0 && (
                   <p className="text-gray-500 dark:text-gray-400 text-center py-8">No labels to edit.</p>
                 )}
               </div>
-
-              {/* Action Buttons */}
               <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button variant="outline" onClick={() => setShowEditLabelsModal(false)} className="flex-1">
                   Cancel

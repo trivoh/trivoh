@@ -1,161 +1,185 @@
 "use client"
+
 import { createContext, useContext, useState, type ReactNode } from "react"
 
 export interface Email {
   id: string
   sender: string
-  senderEmail: string
   subject: string
   preview: string
   content: string
   timestamp: string
   isRead: boolean
-  isStarred: boolean
   labels: string[]
-  avatar?: string
   folder: string
+  to?: string
+  cc?: string
+  bcc?: string
+  isStarred?: boolean
 }
 
 export interface Label {
   id: string
   name: string
   color: string
-  count: number
 }
 
 interface EmailContextType {
   emails: Email[]
   selectedEmail: Email | null
   selectedFolder: string
-  showComposeModal: boolean
-  labels: Label[]
-  searchQuery: string // Added for search functionality
+  searchQuery: string // searchTerm se change karo
+  setSearchQuery: (query: string) => void // setSearchTerm se change karo
   setSelectedEmail: (email: Email | null) => void
   setSelectedFolder: (folder: string) => void
-  setShowComposeModal: (show: boolean) => void
   markAsRead: (emailId: string) => void
   toggleStar: (emailId: string) => void
+  deleteEmail: (emailId: string) => void
+  addEmail: (email: Omit<Email, "id" | "timestamp">) => void
   getEmailsByFolder: (folder: string) => Email[]
-  setSearchQuery: (query: string) => void // Added for search functionality
+  getFilteredEmails: (folder: string, search?: string) => Email[]
+  getUnreadCount: (folder: string) => number
 }
 
 const EmailContext = createContext<EmailContextType | undefined>(undefined)
 
-const mockEmails: Email[] = [
+// Sample emails for demonstration
+const sampleEmails: Email[] = [
   {
     id: "1",
-    sender: "AI Mail sender",
-    senderEmail: "ai@mailsender.com",
-    subject: "Networking and other information from March forth in Business Monthly",
-    preview: "Hey! How are you doing? How are you doing? A cluster come by default a general for discussion...",
-    content: `Hey! How are you doing? How are you doing? A cluster come by default a general for discussion, you can add more rooms if needed...`,
-    timestamp: "11:30am",
+    sender: "John Doe",
+    subject: "Meeting Tomorrow",
+    preview: "Hi, just wanted to confirm our meeting tomorrow at 2 PM. Please let me know if you need to reschedule.",
+    content:
+      "Hi,\n\nJust wanted to confirm our meeting tomorrow at 2 PM. Please let me know if you need to reschedule.\n\nBest regards,\nJohn",
+    timestamp: "2 hours ago",
     isRead: false,
-    isStarred: false,
-    labels: [],
+    labels: ["Work"],
     folder: "inbox",
+    isStarred: false,
   },
   {
     id: "2",
-    sender: "Sender",
-    senderEmail: "sender@example.com",
-    subject: "Invitation to London Tech...",
-    preview: "Hey! I am inviting to to the plan technology partner for that trivia meeting...",
-    content: `Hey! I am inviting to to the plan technology partner for that trivia meeting and the events at the london teach with and exclusive...`,
-    timestamp: "9:30am",
+    sender: "Sarah Wilson",
+    subject: "Project Update",
+    preview: "The latest project milestone has been completed. Here's a summary of what we've accomplished...",
+    content: "The latest project milestone has been completed. Here's a summary of what we've accomplished this week.",
+    timestamp: "5 hours ago",
     isRead: true,
-    isStarred: false,
-    labels: [],
+    labels: ["Work", "Important"],
     folder: "inbox",
+    isStarred: false,
   },
   {
     id: "3",
-    sender: "John Doe",
-    senderEmail: "john@example.com",
-    subject: "Meeting Request",
-    preview: "Would you like to schedule a meeting for next week?",
-    content: "Hi there, I hope this email finds you well. I wanted to reach out to schedule a meeting...",
-    timestamp: "Yesterday",
+    sender: "Mike Johnson",
+    subject: "Weekend Plans",
+    preview: "Hey! Are you free this weekend? I was thinking we could go hiking or maybe catch a movie.",
+    content: "Hey! Are you free this weekend? I was thinking we could go hiking or maybe catch a movie.",
+    timestamp: "1 day ago",
     isRead: false,
-    isStarred: true,
-    labels: [],
+    labels: ["Personal"],
     folder: "desired",
+    isStarred: true,
   },
   {
     id: "4",
-    sender: "Sarah Wilson",
-    senderEmail: "sarah@company.com",
-    subject: "Project Update",
-    preview: "The latest updates on our current project status...",
-    content: "Hi team, here are the latest updates on our project...",
+    sender: "Newsletter",
+    subject: "Weekly Tech News",
+    preview: "This week in technology: AI breakthroughs, new smartphone releases, and cybersecurity updates.",
+    content: "This week in technology: AI breakthroughs, new smartphone releases, and cybersecurity updates.",
     timestamp: "2 days ago",
     isRead: true,
-    isStarred: false,
     labels: [],
     folder: "sent",
+    isStarred: false,
   },
   {
     id: "5",
-    sender: "Draft Email",
-    senderEmail: "draft@local.com",
-    subject: "Unsent Message",
-    preview: "This is a draft email that hasn't been sent yet...",
-    content: "This is the content of a draft email...",
+    sender: "You (Draft)",
+    subject: "Unfinished Email",
+    preview: "This is a draft email that I started writing but haven't finished yet...",
+    content: "This is a draft email that I started writing but haven't finished yet. I need to complete this later.",
     timestamp: "3 days ago",
-    isRead: false,
-    isStarred: false,
-    labels: [],
+    isRead: true,
+    labels: ["Draft"],
     folder: "drafts",
+    isStarred: false,
   },
   {
     id: "6",
     sender: "Spam Sender",
-    senderEmail: "spam@spam.com",
-    subject: "You've won a million dollars!",
-    preview: "Congratulations! You've won our lottery...",
-    content: "This is obviously spam content...",
+    subject: "You've Won $1,000,000!",
+    preview: "Congratulations! You've won our lottery. Click here to claim your prize...",
+    content: "This is obviously spam content. Don't click any links!",
     timestamp: "1 week ago",
     isRead: false,
-    isStarred: false,
     labels: [],
     folder: "spam",
+    isStarred: false,
   },
 ]
 
-const mockLabels: Label[] = [
-  { id: "1", name: "Clients", color: "bg-red-400", count: 0 },
-  { id: "2", name: "Personals", color: "bg-blue-400", count: 0 },
-  { id: "3", name: "Tech Team", color: "bg-yellow-400", count: 0 },
-]
-
 export function EmailProvider({ children }: { children: ReactNode }) {
-  const [emails] = useState<Email[]>(mockEmails)
+  const [emails, setEmails] = useState<Email[]>(sampleEmails)
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [selectedFolder, setSelectedFolder] = useState("inbox")
-  const [showComposeModal, setShowComposeModal] = useState(false)
-  const [labels] = useState<Label[]>(mockLabels)
-  const [searchQuery, setSearchQuery] = useState("") // New state for search query
+  const [searchQuery, setSearchQuery] = useState("") // searchTerm se change karo
+
+  const addEmail = (emailData: Omit<Email, "id" | "timestamp">) => {
+    const newEmail: Email = {
+      ...emailData,
+      id: Date.now().toString(),
+      timestamp: "Just now",
+      isStarred: false,
+    }
+    setEmails((prev) => [newEmail, ...prev])
+  }
+
+  const deleteEmail = (emailId: string) => {
+    setEmails((prev) => prev.filter((email) => email.id !== emailId))
+    // If the deleted email was selected, clear selection
+    if (selectedEmail?.id === emailId) {
+      setSelectedEmail(null)
+    }
+  }
 
   const getEmailsByFolder = (folder: string): Email[] => {
-    const filteredByFolder = emails.filter((email) => email.folder === folder)
-    if (!searchQuery) {
-      return filteredByFolder
+    return emails.filter((email) => email.folder === folder)
+  }
+
+  const getFilteredEmails = (folder: string, search?: string): Email[] => {
+    const folderEmails = getEmailsByFolder(folder)
+
+    // Use the search parameter if provided, otherwise use the context searchQuery
+    const searchTerm = search !== undefined ? search : searchQuery // searchTerm variable name keep karo
+
+    // Return all emails if no search query
+    if (!searchTerm || !searchTerm.trim()) {
+      return folderEmails
     }
-    const lowerCaseQuery = searchQuery.toLowerCase()
-    return filteredByFolder.filter(
+
+    const lowerCaseQuery = searchTerm.toLowerCase().trim()
+    return folderEmails.filter(
       (email) =>
         email.sender.toLowerCase().includes(lowerCaseQuery) ||
         email.subject.toLowerCase().includes(lowerCaseQuery) ||
         email.preview.toLowerCase().includes(lowerCaseQuery) ||
-        email.content.toLowerCase().includes(lowerCaseQuery),
+        email.content.toLowerCase().includes(lowerCaseQuery) ||
+        email.labels.some((label) => label.toLowerCase().includes(lowerCaseQuery)),
     )
   }
 
-  const markAsRead = (emailId: string) => {
-    // Implementation for marking email as read
+  const getUnreadCount = (folder: string): number => {
+    return emails.filter((email) => email.folder === folder && !email.isRead).length
   }
+
+  const markAsRead = (emailId: string) => {
+    setEmails((prev) => prev.map((email) => (email.id === emailId ? { ...email, isRead: true } : email)))
+  }
+
   const toggleStar = (emailId: string) => {
-    // Implementation for toggling star
+    setEmails((prev) => prev.map((email) => (email.id === emailId ? { ...email, isStarred: !email.isStarred } : email)))
   }
 
   return (
@@ -164,16 +188,17 @@ export function EmailProvider({ children }: { children: ReactNode }) {
         emails,
         selectedEmail,
         selectedFolder,
-        showComposeModal,
-        labels,
-        searchQuery, // Provide search query
+        searchQuery, // searchTerm se change karo
+        setSearchQuery, // setSearchTerm se change karo
         setSelectedEmail,
         setSelectedFolder,
-        setShowComposeModal,
         markAsRead,
         toggleStar,
+        deleteEmail,
+        addEmail,
         getEmailsByFolder,
-        setSearchQuery, // Provide setSearchQuery
+        getFilteredEmails,
+        getUnreadCount,
       }}
     >
       {children}
